@@ -1,4 +1,3 @@
-import os
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from forms.router import router as forms_router
@@ -8,7 +7,6 @@ from feedback.router import router as feedback_router
 app = FastAPI()
 
 origins = [
-    "http://localhost:5173",
     "*"
 ]
 
@@ -20,9 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(forms_router)
-app.include_router(users_router)
-app.include_router(feedback_router)
+# app.include_router(forms_router)
+# app.include_router(users_router)
+# app.include_router(feedback_router)
 
 @app.get("/")
 def root():
