@@ -18,9 +18,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# app.include_router(forms_router)
-# app.include_router(users_router)
-# app.include_router(feedback_router)
+app.include_router(forms_router)
+app.include_router(users_router)
+app.include_router(feedback_router)
 
 @app.get("/")
 def root():
