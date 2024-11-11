@@ -1,8 +1,8 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from forms.router import router as forms_router
-from users.router import router as users_router
-from feedback.router import router as feedback_router
+from .forms.router import router as forms_router
+from .users.router import router as users_router
+from .feedback.router import router as feedback_router
 
 app = FastAPI()
 
