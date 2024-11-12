@@ -6,7 +6,7 @@ from .forms.router import router as forms_router
 from .users.router import router as users_router
 from .feedback.router import router as feedback_router
 from .preview.router import router as preview_router
-from constants import PUBLIC_PATHS
+from .constants import PUBLIC_PATHS
 from supabase import create_client, Client
 from dotenv import load_dotenv
 load_dotenv()
