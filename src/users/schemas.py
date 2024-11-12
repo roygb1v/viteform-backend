@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Literal, Any
+from typing import Any, Literal, Optional
 
 class UserResponse(BaseModel):
   status: Literal["success", "error"]
@@ -7,6 +7,10 @@ class UserResponse(BaseModel):
   message: str | None = None
 
 class UserModel(BaseModel):
-  name: str
+  name: Optional[str] = None
   email: str
   password: str
+
+class Token(BaseModel):
+  access_token: str
+  token_type: str
