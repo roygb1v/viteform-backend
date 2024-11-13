@@ -17,14 +17,10 @@ supabase = create_client(url, key)
 
 app = FastAPI()
 
-origins = [
-    "*"
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
