@@ -6,6 +6,7 @@ from .forms.router import router as forms_router
 from .users.router import router as users_router
 from .feedback.router import router as feedback_router
 from .preview.router import router as preview_router
+from .results.router import router as results_router
 from .constants import PUBLIC_PATHS
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -71,6 +72,7 @@ async def check_authorization_header(request: Request, call_next):
 
 
 app.include_router(forms_router)
+app.include_router(results_router)
 app.include_router(users_router)
 app.include_router(feedback_router)
 app.include_router(preview_router)
