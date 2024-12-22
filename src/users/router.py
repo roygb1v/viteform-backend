@@ -18,7 +18,7 @@ key = os.environ.get("SUPABASE_KEY")
 supabase = create_client(url, key)
 
 
-@router.post('/',response_model=UserResponse,
+@router.post('/signup',response_model=UserResponse,
   responses={
     400: {"description": "Invalid user data"}
   }

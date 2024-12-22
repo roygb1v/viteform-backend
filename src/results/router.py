@@ -23,10 +23,13 @@ supabase = create_client(url, key)
     400: {"description": "Invalid form data"}
   }
 )
-def get_form(id: str) -> FormResultsResponse:
+def get_form_results(form_id: str) -> FormResultsResponse:
   try:
-    response = supabase.table("form_configs").select("*").eq("id", id).limit(1).execute()
-    if not response.data:
+    response = supabase.rpc('results', {
+      'form_id': form_id
+    }).execute()
+
+    if not response:
       raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"Form with id {form_config.id} not found"
@@ -43,3 +46,64 @@ def get_form(id: str) -> FormResultsResponse:
       status_code=status.HTTP_400_BAD_REQUEST,
       detail=str(e)
     )
+
+# QUERY TO GET FORM_RESPONSES
+# SELECT
+#   COUNT(*),
+#   qr.question_id,
+#   qr.question_type,
+#   qr.value
+# FROM
+#   question_responses qr
+#   INNER JOIN form_submissions ON form_submissions.id = qr.submission_id
+#   INNER JOIN form_configs ON form_configs.id = form_submissions.form_id
+# WHERE
+#   form_configs.id = '4cf38574-2262-4ebe-8618-8ad22c5d6011'
+# GROUP BY
+#   qr.question_id,
+#   qr.question_type,
+#   qr.value
+
+
+# QUERY TO GET FORM_QUESTIONS EXTRACTED FROM FORM_CONFIGS
+# WITH response_counts AS (
+#     SELECT
+#         qr.question_id,
+#         qr.value,
+#         COUNT(*) as count
+#     FROM
+#         question_responses qr
+#         INNER JOIN form_submissions ON form_submissions.id = qr.submission_id
+#         INNER JOIN form_configs ON form_configs.id = form_submissions.form_id
+#     WHERE
+#         form_configs.id = '4cf38574-2262-4ebe-8618-8ad22c5d6011'
+#     GROUP BY
+#         qr.value,
+#         qr.question_id
+#     )
+# SELECT jsonb_build_object(
+#     'id', question->>'id',
+#     'name', question->>'name',
+#     'type', question->>'type',
+#     'title', question->>'title',
+#     'description', question->>'description',
+#     'options', (
+#         SELECT jsonb_agg(
+#             jsonb_build_object(
+#                 'label', opt->>'label',
+#                 'count', COALESCE((
+#                     SELECT count 
+#                     FROM response_counts 
+#                     WHERE question_id = question->>'id'
+#                     AND value = opt->>'label'
+#                 ), 0)
+#             )
+#         )
+#         FROM jsonb_array_elements(question->'options') opt
+#     )
+# ) as question_data
+# FROM form_configs,
+#      jsonb_array_elements(steps) pages,
+#      jsonb_array_elements(pages->'questions') question
+# WHERE question->>'id' IN ('aaa', 'bbb', 'eee')
+# AND form_configs.id = '4cf38574-2262-4ebe-8618-8ad22c5d6011';

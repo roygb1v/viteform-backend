@@ -1,4 +1,5 @@
 import os
+import stripe
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,8 @@ from .users.router import router as users_router
 from .feedback.router import router as feedback_router
 from .preview.router import router as preview_router
 from .results.router import router as results_router
+from .pricing.router import router as pricing_router
+from .search.router import router as search_router
 from .constants import PUBLIC_PATHS
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -18,16 +21,23 @@ supabase = create_client(url, key)
 
 app = FastAPI()
 
+origins = [
+    "*"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.middleware("http")
 async def check_authorization_header(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
     path = request.url.path.split('/')
     if path[-1]:
         path = path[-1]
@@ -45,7 +55,6 @@ async def check_authorization_header(request: Request, call_next):
         )
 
     jwt = auth_header.replace('Bearer ', '')
-
     if not jwt:
         return JSONResponse(
             status_code=401,
@@ -76,6 +85,8 @@ app.include_router(results_router)
 app.include_router(users_router)
 app.include_router(feedback_router)
 app.include_router(preview_router)
+app.include_router(pricing_router)
+app.include_router(search_router)
 
 @app.get("/")
 def root():
