@@ -1,5 +1,5 @@
-from typing import Any, List, Dict, Optional, Literal
-from pydantic import BaseModel
+from typing import Any, List, Dict, Optional, Literal, Union
+from pydantic import BaseModel, Field
 
 class FormResponse(BaseModel):
   status: Literal["success", "error"]
@@ -21,11 +21,11 @@ class Required(BaseModel):
     message: str
 
 class MinLength(BaseModel):
-    value: int
+    value: int | None = None
     message: str
 
 class MaxLength(BaseModel):
-    value: int
+    value: int | None = None
     message: str
 
 class Pattern(BaseModel):
@@ -37,16 +37,16 @@ class Min(BaseModel):
     message: str = "Minimum value must be at least "
 
 class Max(BaseModel):
-    value: int
+    value: Optional[int] = None
     message: str = "Maximum value cannot exceed "
 
 class RuleSchema(BaseModel):
     required: Required
-    minLength: MinLength = None
-    maxLength: MaxLength = None
-    min: Min = None
-    max: Max = None
-    pattern: Pattern = None
+    minLength: Optional[MinLength | None] = None
+    maxLength: Optional[MaxLength | None] = None
+    min: Optional[Min | None] = None
+    max: Optional[Min | None] = None
+    pattern: Optional[Pattern | None] = None
 
 class QuestionSchema(BaseModel):
     id: str

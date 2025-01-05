@@ -42,11 +42,11 @@ class Max(BaseModel):
 
 class RuleSchema(BaseModel):
     required: Required
-    minLength: MinLength = None
-    maxLength: MaxLength = None
-    min: Min = None
-    max: Max = None
-    pattern: Pattern = None
+    minLength: Optional[MinLength | None] = None
+    maxLength: Optional[MaxLength | None] = None
+    min: Optional[Min | None] = None
+    max: Optional[Max | None] = None
+    pattern: Optional[Pattern | None] = None
 
 class QuestionSchema(BaseModel):
     id: str
@@ -69,6 +69,16 @@ class FormConfigSchema(BaseModel):
     plan: str
     theme: ThemeSchema
     steps: List[StepSchema]
+    user_id: str
 
   
-  
+class QuestionResponseSchema(BaseModel):
+    question_id: str
+    question_type: str
+    label: Optional[str] = None
+    value: str
+
+class FormSubmissionSchema(BaseModel):
+    form_id: str
+    status: str
+    data: List[QuestionResponseSchema]

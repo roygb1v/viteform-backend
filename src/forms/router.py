@@ -2,7 +2,7 @@ import os
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from supabase import create_client, Client
-from .schemas import FormConfigSchema, FormResponse
+from .schemas import FormConfigSchema, FormSubmissionSchema, FormResponse
 from src.utils import decode_jwt, get_jwt_user
 from dotenv import load_dotenv
 load_dotenv()
@@ -124,7 +124,6 @@ def update_form(form_config: FormConfigSchema) -> FormResponse:
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"Form with id {form_config.id} not found"
       )
-      
     return FormResponse(
       status="success",
       message="Form updated successfully"
@@ -156,5 +155,30 @@ def delete_form(id: str):
   except Exception as e:
     raise HTTPException(
       status_code=status.HTTP_400_BAD_REQUEST,
+      detail=str(e)
+    )
+
+# SUBMIT FORM
+@router.post("/submit",
+  response_model=FormResponse,
+  responses={
+    500: {"description": "Unable to submit form"}
+  })
+def submit_form(form: FormSubmissionSchema) -> FormResponse:
+  try:
+    f = {"form_id": form.form_id, "status": form.status}
+    response = supabase.table("form_submissions").insert(f).execute().data[0]
+    submission_id = response.get('id', '')
+    
+    question_responses = [{**datum.model_dump(), 'submission_id': submission_id} for datum in form.data]
+    error = supabase.table("question_responses").insert(question_responses).execute()
+
+    return FormResponse(
+      status="success",
+      message="Form submitted successfully"
+    )
+  except Exception as e:
+    raise HTTPException(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
       detail=str(e)
     )

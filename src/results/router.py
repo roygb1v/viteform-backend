@@ -25,7 +25,7 @@ supabase = create_client(url, key)
 )
 def get_form_results(form_id: str) -> FormResultsResponse:
   try:
-    response = supabase.rpc('results', {
+    response = supabase.rpc('agg_results', {
       'form_id': form_id
     }).execute()
 
