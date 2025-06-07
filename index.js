@@ -16,10 +16,12 @@ const isProduction = process.env.NODE_ENV === "production"
 app.use(
   cors({
     origin: function (origin, callback) {
-      console.log("HERE")
+      console.log("HERE", origin, callback)
       if (!origin || allowedOrigins.includes(origin)) {
+        console.log('allow in cors')
         callback(null, true);
       } else {
+        console.log('error not allowed by cors')
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -360,6 +362,7 @@ app.post("/api/auth/refresh", async (request, response) => {
 });
 
 app.post("/auth/login", async (request, response) => {
+  console.log('auth/login', request.body)
   try {
     const { email } = request.body;
 
