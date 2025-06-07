@@ -11,6 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const allowedOrigins = ["http://localhost:5173", "https://viteform.io"]
 const app = express();
 const port = 3000;
+const isProduction = process.env.NODE_ENV === "production"
 
 app.use(
   cors({
@@ -367,7 +368,7 @@ app.post("/auth/login", async (request, response) => {
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: "http://localhost:5173/dashboard",
+        emailRedirectTo: isProduction ? "https://viteform.io/dashboard" : "http://localhost:5173/dashboard",
       },
     });
 
@@ -394,9 +395,9 @@ app.get("/auth/google/callback", async (request, response) => {
   try {
     const token = request.query.access_token;
 
-    response.redirect("http://localhost:5173/dashboard");
+    response.redirect(`${isProduction ? "https://viteform.io" : "http://localhost:5173"}/dashboard`);
   } catch (e) {
-    response.redirect("http://localhost:5173/error");
+    response.redirect(`${isProduction ? "https://viteform.io" : "http://localhost:5173"}/error`);
   }
 });
 
