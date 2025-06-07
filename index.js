@@ -5,50 +5,266 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { combineResults } from "./utils/index.js";
-const supabaseUrl = "https://nnasgslpoyasulvyovov.supabase.co";
+const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
-
+const allowedOrigins = ["http://localhost:5173", "https://viteform.io"]
 const app = express();
 const port = 3000;
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: function (origin, callback) {
+      console.log("HERE")
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
+
 app.use(cookieParser());
 app.use(express.json());
 
 const wss = new WebSocketServer({ port: 8080 });
 
+const EMPTY_ROOM_STATE = {
+  maxCapacity: 20,
+  isLocked: false,
+  password: null,
+  timeLimit: 10000,
+  clients: [],
+  data: null,
+  state: {
+    current: null,
+    status: "active",
+    round: 0,
+    totalQuestions: 0,
+  },
+  responses: {
+    // questionId1: {
+    //   userId1: { response: "Paris", isCorrect: true, timestamp: Date.now() },
+    //   userId2: { response: "Paris", isCrrect: true, timestamp: Date.now() },
+    //   userId3: { response: "Berlin", isCorrect: false, timestamp: Date.now() },
+    //   userid4: { response: "Test", isCorrect: false, timestamp: Date.now() },
+    // },
+  },
+  leaderboard: {
+    // scores: {
+    //   userId1: 1,
+    //   userId2: 1,
+    //   userId3: 0,
+    //   userId4: 0,
+    // },
+  },
+}
+
+// move this to backend
+const rooms = {
+  xxx: structuredClone(EMPTY_ROOM_STATE)
+};
+
 wss.on("connection", (ws) => {
   ws.on("error", console.error);
+  console.log("connected");
 
-  const intervalId = setInterval(() => {
-    const data = {
-      timestamp: Date.now(),
-      temperature: Math.random() * 100,
-      humidity: Math.random() * 50,
-    };
+  let userId;
+  let roomId;
 
-    ws.send(JSON.stringify(data));
-  }, 1000);
+  ws.on("message", async (data, isBinary) => {
+    try {
+      const parsed = JSON.parse(data);
 
-  ws.on("message", (data, isBinary) => {
-    const msg = data.toString();
+      const { message, action, user } = parsed;
+      userId = user.id;
 
-    wss.clients.forEach(function each(client) {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(data, { binary: isBinary });
+      switch (action) {
+        case "join":
+          console.log("joining..");
+          break;
+        case "reconnect":
+          console.log("reconnecting...", parsed);
+          if (parsed?.roomId && rooms[parsed.roomId]) {
+            const clientIndex = rooms[parsed.roomId].clients.findIndex(
+              (client) => client.id === user.id
+            );
+            if (clientIndex > -1) {
+              const transformedClient = {
+                ...rooms[parsed.roomId].clients[clientIndex],
+                isConnected: true,
+              };
+              rooms[parsed.roomId].clients.splice(
+                clientIndex,
+                1,
+                transformedClient
+              );
+            }
+          }
+          break;
+        case "response":
+          console.log("responding...");
+          const { questionId } = message;
+          const room = rooms[roomId];
+
+          const storedQuestion = room.responses[questionId] ?? {};
+          const updatedResponse = {
+            ...storedQuestion,
+            [user.id]: {
+              questionId: message.questionId,
+              answer: message.answer,
+              isCorrect: message.isCorrect,
+              timestamp: Date.now(),
+            },
+          };
+          room.responses[questionId] = updatedResponse;
+
+          const haveAllClientsAnswered =
+            rooms[roomId].clients.length ===
+            Object.keys(updatedResponse).length;
+
+          if (haveAllClientsAnswered) {
+            // Update state
+            const currentRound = rooms[roomId].state.round;
+            rooms[roomId].state.round = currentRound + 1;
+
+            if (rooms[roomId].state.round >= rooms[roomId].data.questions.length ) {
+              rooms[roomId].state.status = "inactive" // ??
+              wss.clients.forEach(function each(client) {
+                if (client.readyState === WebSocket.OPEN) {
+                  client.send(
+                    JSON.stringify({
+                      ...rooms[roomId],
+                      state: {
+                        ...rooms[roomId].state,
+                        status: "inactive",
+                      },
+                      status: {
+                        userId,
+                        completed: true,
+                      },
+                    }),
+                    { binary: isBinary }
+                  );
+                }
+              });
+
+              // Reset form
+              rooms[roomId] = JSON.parse(JSON.stringify({
+                ...structuredClone(EMPTY_ROOM_STATE),
+                data: rooms[roomId].data
+              }))
+
+              // Remove oneself on client and server
+              const clientIndex = rooms[parsed.roomId]?.clients.findIndex(
+                (client) => client.id === user.id
+              );
+              rooms[parsed.roomId].clients.splice(
+                clientIndex,
+                1,
+                0
+              );
+
+              return;
+            }
+
+            rooms[roomId].state.current =
+              rooms[roomId].data.questions[currentRound + 1];
+
+            wss.clients.forEach(function each(client) {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(
+                  JSON.stringify({
+                    ...rooms[roomId],
+                    status: {
+                      userId,
+                      completed: true,
+                    },
+                  }),
+                  { binary: isBinary }
+                );
+              }
+            });
+          }
+
+          // set status to done
+
+          // check if all clients have sent message or timer has expired
+
+          // if false, send events to all clients with questionCompleted = false
+
+          // else, send next question and questionCompleted = true
+
+          return;
+        default:
+          console.log("defaulting...");
       }
-    });
+
+      const isRoomPresent = parsed?.roomId && rooms[parsed.roomId]
+
+      if (isRoomPresent) {
+        roomId = parsed.roomId;
+
+        const clients = rooms[roomId].clients;
+
+        const isClientPresent = clients.filter((client) => client.id === user.id).length === 0
+
+        if (isClientPresent) {
+          clients.push(user);
+        }
+
+        // Check if data is present
+        if (!rooms[roomId].data) {
+          const { data: formData, error } = await supabase
+            .from("forms")
+            .select("*")
+            .eq("id", "7a0558a9-ce12-4d57-9b96-7288823df929")
+            .single();
+
+          if (!error) {
+            rooms[roomId].data = formData;
+            rooms[roomId].state.totalQuestions = formData?.questions?.length
+          }
+        }
+
+        const round = rooms[roomId].state.round;
+        rooms[roomId].state.current = rooms[roomId].data.questions[round];
+
+        wss.clients.forEach(function each(client) {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(
+              JSON.stringify({
+                ...rooms[roomId],
+              }),
+              { binary: isBinary }
+            );
+          }
+        });
+      } else {
+        rooms[parsed.roomId] = structuredClone(EMPTY_ROOM_STATE)
+      }
+    } catch (e) {
+      console.error(e);
+    }
   });
 
   ws.on("close", () => {
-    console.log("A client disconnected");
-    clearInterval(intervalId);
+    console.log("A client disconnected", userId);
+
+    if (rooms[roomId]) {
+      const clientIndex = rooms[roomId].clients.findIndex(
+        (client) => client.id === userId
+      );
+      if (clientIndex > -1) {
+        const transformedClient = {
+          ...rooms[roomId].clients[clientIndex],
+          isConnected: false,
+        };
+        rooms[roomId].clients.splice(clientIndex, 1, transformedClient);
+      }
+    }
   });
 });
 
@@ -88,7 +304,18 @@ app.get("/", async (_, response) => {
   return response.json({ msg: "success" });
 });
 
+app.get("/api/rooms", (request, response) => {
+  const roomId = request.query.id;
+
+  if (!rooms[roomId]) {
+    return response.status(400).json({ msg: false });
+  }
+
+  return response.status(200).json({ msg: true });
+});
+
 app.get("/api/auth/me", authenticateUser, (request, response) => {
+  console.log("api/auth/me");
   return response.status(200).json({ user: request.user });
 });
 
