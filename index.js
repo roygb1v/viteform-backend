@@ -8,49 +8,23 @@ import { combineResults } from "./utils/index.js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
-const allowedOrigins = ["http://localhost:5173", "https://viteform.io", "https://www.viteform.io"]
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://viteform.io",
+  "https://www.viteform.io",
+];
 const app = express();
 const port = 3000;
-const isProduction = process.env.NODE_ENV === "production"
-
-app.use(function (req, res, next) {
-  console.log({isProduction, env: process.env.NODE_ENV});
-
-  // Website you wish to allow to connect
-  res.setHeader('Access-Control-Allow-Origin', '*');
-
-  // Request methods you wish to allow
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-
-  // Request headers you wish to allow
-  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
-
-  // Set to true if you need the website to include cookies in the requests sent
-  // to the API (e.g. in case you use sessions)
-  res.setHeader('Access-Control-Allow-Credentials', true);
-
-  // Pass to next layer of middleware
-  next();
-});
-
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      console.log("HERE", origin, callback)
-      if (!origin || allowedOrigins.includes(origin)) {
-        console.log('allow in cors')
-        callback(null, true);
-      } else {
-        console.log('error not allowed by cors')
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
+const isProduction = process.env.NODE_ENV === "production";
 
 app.use(cookieParser());
 app.use(express.json());
+app.use(
+  cors({
+    origin: ["*"],
+    credentials: true,
+  })
+);
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -83,11 +57,11 @@ const EMPTY_ROOM_STATE = {
     //   userId4: 0,
     // },
   },
-}
+};
 
 // move this to backend
 const rooms = {
-  xxx: structuredClone(EMPTY_ROOM_STATE)
+  xxx: structuredClone(EMPTY_ROOM_STATE),
 };
 
 wss.on("connection", (ws) => {
@@ -153,8 +127,10 @@ wss.on("connection", (ws) => {
             const currentRound = rooms[roomId].state.round;
             rooms[roomId].state.round = currentRound + 1;
 
-            if (rooms[roomId].state.round >= rooms[roomId].data.questions.length ) {
-              rooms[roomId].state.status = "inactive" // ??
+            if (
+              rooms[roomId].state.round >= rooms[roomId].data.questions.length
+            ) {
+              rooms[roomId].state.status = "inactive"; // ??
               wss.clients.forEach(function each(client) {
                 if (client.readyState === WebSocket.OPEN) {
                   client.send(
@@ -175,20 +151,18 @@ wss.on("connection", (ws) => {
               });
 
               // Reset form
-              rooms[roomId] = JSON.parse(JSON.stringify({
-                ...structuredClone(EMPTY_ROOM_STATE),
-                data: rooms[roomId].data
-              }))
+              rooms[roomId] = JSON.parse(
+                JSON.stringify({
+                  ...structuredClone(EMPTY_ROOM_STATE),
+                  data: rooms[roomId].data,
+                })
+              );
 
               // Remove oneself on client and server
               const clientIndex = rooms[parsed.roomId]?.clients.findIndex(
                 (client) => client.id === user.id
               );
-              rooms[parsed.roomId].clients.splice(
-                clientIndex,
-                1,
-                0
-              );
+              rooms[parsed.roomId].clients.splice(clientIndex, 1, 0);
 
               return;
             }
@@ -225,14 +199,15 @@ wss.on("connection", (ws) => {
           console.log("defaulting...");
       }
 
-      const isRoomPresent = parsed?.roomId && rooms[parsed.roomId]
+      const isRoomPresent = parsed?.roomId && rooms[parsed.roomId];
 
       if (isRoomPresent) {
         roomId = parsed.roomId;
 
         const clients = rooms[roomId].clients;
 
-        const isClientPresent = clients.filter((client) => client.id === user.id).length === 0
+        const isClientPresent =
+          clients.filter((client) => client.id === user.id).length === 0;
 
         if (isClientPresent) {
           clients.push(user);
@@ -248,7 +223,7 @@ wss.on("connection", (ws) => {
 
           if (!error) {
             rooms[roomId].data = formData;
-            rooms[roomId].state.totalQuestions = formData?.questions?.length
+            rooms[roomId].state.totalQuestions = formData?.questions?.length;
           }
         }
 
@@ -266,7 +241,7 @@ wss.on("connection", (ws) => {
           }
         });
       } else {
-        rooms[parsed.roomId] = structuredClone(EMPTY_ROOM_STATE)
+        rooms[parsed.roomId] = structuredClone(EMPTY_ROOM_STATE);
       }
     } catch (e) {
       console.error(e);
@@ -382,18 +357,23 @@ app.post("/api/auth/refresh", async (request, response) => {
 });
 
 app.post("/auth/login", async (request, response) => {
-  console.log('auth/login', request.body)
+  console.log("auth/login", request.body);
   try {
     const { email } = request.body;
 
     if (!email) throw new Error("Email is required");
+            // emailRedirectTo: isProduction
+        //   ? "https://viteform.io/dashboard"
+        //   : "http://localhost:5173/dashboard",
 
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: isProduction ? "https://viteform.io/dashboard" : "http://localhost:5173/dashboard",
+        emailRedirectTo: "https://viteform.io/dashboard"
       },
     });
+
+    console.log(data)
 
     if (error) {
       return response.json({
@@ -418,9 +398,15 @@ app.get("/auth/google/callback", async (request, response) => {
   try {
     const token = request.query.access_token;
 
-    response.redirect(`${isProduction ? "https://viteform.io" : "http://localhost:5173"}/dashboard`);
+    response.redirect(
+      `${
+        isProduction ? "https://viteform.io" : "http://localhost:5173"
+      }/dashboard`
+    );
   } catch (e) {
-    response.redirect(`${isProduction ? "https://viteform.io" : "http://localhost:5173"}/error`);
+    response.redirect(
+      `${isProduction ? "https://viteform.io" : "http://localhost:5173"}/error`
+    );
   }
 });
 
