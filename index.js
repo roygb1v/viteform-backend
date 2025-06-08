@@ -8,37 +8,21 @@ import { combineResults } from "./utils/index.js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
-const allowedOrigins = [
-  "https://www.viteform.io",
-];
 const app = express();
 const port = 3000;
 const isProduction = process.env.NODE_ENV === "production";
 
-const corsOptions = {
-  origin: ["https://www.viteform.io", "viteform.io"],
-  allowedHeaders: ["Content-Type", "Authorization", "Access-Control-Allow-Methods", "Access-Control-Request-Headers"],
-  credentials: true,
-  enablePreflight: true
-}
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions))
+// const corsOptions = {
+//   origin: ["https://www.viteform.io", "viteform.io"],
+//   allowedHeaders: ["Content-Type", "Authorization", "Access-Control-Allow-Methods", "Access-Control-Request-Headers"],
+//   credentials: true,
+//   enablePreflight: true
+// }
+// app.use(cors(corsOptions));
+// app.options('*', cors(corsOptions))
+
 app.use(cookieParser());
 app.use(express.json());
-app.options('*', cors()) // include before other routes
-// app.use(
-//   cors({
-//     origin: function (origin, callback) {
-//       console.log("ORIGIN here")
-//       if (!origin || allowedOrigins.includes(origin)) {
-//         callback(null, true);
-//       } else {
-//         callback(new Error('Not allowed by CORS'));
-//       }
-//     },
-//     credentials: true,
-//   })
-// );
 
 const wss = new WebSocketServer({ port: 8080 });
 
