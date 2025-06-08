@@ -17,6 +17,7 @@ const isProduction = process.env.NODE_ENV === "production";
 
 app.use(cookieParser());
 app.use(express.json());
+app.options('*', cors()) // include before other routes
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -30,18 +31,6 @@ app.use(
     credentials: true,
   })
 );
-
-app.options('*', cors({
-  origin: function (origin, callback) {
-    console.log("OPTIONS here")
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-}));
 
 const wss = new WebSocketServer({ port: 8080 });
 
