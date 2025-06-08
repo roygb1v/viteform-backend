@@ -9,8 +9,6 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://viteform.io",
   "https://www.viteform.io",
 ];
 const app = express();
