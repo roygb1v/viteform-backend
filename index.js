@@ -22,6 +22,7 @@ app.use(express.json());
 app.use(
   cors({
     origin: function (origin, callback) {
+      console.log("ORIGIN here")
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -31,6 +32,18 @@ app.use(
     credentials: true,
   })
 );
+
+app.options('*', cors({
+  origin: function (origin, callback) {
+    console.log("OPTIONS here")
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 
 const wss = new WebSocketServer({ port: 8080 });
 
