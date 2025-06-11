@@ -258,6 +258,8 @@ wss.on("connection", (ws) => {
 const authenticateUser = async (request, response, next) => {
   try {
     const accessToken = request.cookies.access_token;
+    console.log('authenticateUser request.cookies', request.cookies)
+    console.log('access_token', accessToken)
 
     if (!accessToken) {
       return response.status(401).json({
