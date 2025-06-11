@@ -11,16 +11,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const app = express();
 const port = 3000;
 const isProduction = process.env.NODE_ENV === "production";
-
-// const corsOptions = {
-//   origin: ["https://www.viteform.io", "viteform.io"],
-//   allowedHeaders: ["Content-Type", "Authorization", "Access-Control-Allow-Methods", "Access-Control-Request-Headers"],
-//   credentials: true,
-//   enablePreflight: true
-// }
-// app.use(cors(corsOptions));
-// app.options('*', cors(corsOptions))
-
 app.use(cookieParser());
 app.use(express.json());
 
@@ -29,6 +19,7 @@ const wss = new WebSocketServer({ port: 8080 });
 const EMPTY_ROOM_STATE = {
   maxCapacity: 20,
   isLocked: false,
+  hasStarted: false,
   password: null,
   timeLimit: 10000,
   clients: [],
@@ -322,6 +313,8 @@ app.get("/tester", authenticateUser, (_, response) => {
 app.post("/api/auth/refresh", async (request, response) => {
   try {
     const refreshToken = request.cookies.refresh_token;
+    console.log('cookies', request.cookies)
+    console.log('refreshToken', refreshToken)
 
     if (!refreshToken) {
       return response.status(401).json({ error: "No refresh token" });
@@ -355,7 +348,6 @@ app.post("/api/auth/refresh", async (request, response) => {
 });
 
 app.post("/auth/login", async (request, response) => {
-  console.log("auth/login", request.body);
   try {
     const { email } = request.body;
 
@@ -370,8 +362,6 @@ app.post("/auth/login", async (request, response) => {
         emailRedirectTo: "https://viteform.io/dashboard"
       },
     });
-
-    console.log(data)
 
     if (error) {
       return response.json({
