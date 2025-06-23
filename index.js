@@ -595,7 +595,7 @@ app.get("/forms/all", authenticateUser, async (request, response) => {
   return response.json({ msg: "error getting form" });
 });
 
-app.get("/forms", authenticateUser, async (request, response) => {
+app.get("/forms", async (request, response) => {
   let { data: forms, error } = await supabase
     .from("forms")
     .select("*")
