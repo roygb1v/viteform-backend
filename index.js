@@ -311,10 +311,6 @@ app.get("/api/auth/me", authenticateUser, (request, response) => {
   return response.status(200).json({ user: request.user });
 });
 
-app.get("/tester", authenticateUser, (_, response) => {
-  return response.json({ msg: "success" });
-});
-
 app.post("/api/auth/refresh", async (request, response) => {
   try {
     const refreshToken = request.cookies.refresh_token;
@@ -354,7 +350,6 @@ app.post("/api/auth/refresh", async (request, response) => {
 
 app.post("/auth/callback", (request, response) => {
   const { access_token, refresh_token } = request.body.data;
-  console.log({ access_token, refresh_token })
 
   if (!access_token) {
     return response.status(400).json({ msg: "No access token" });
@@ -369,6 +364,7 @@ app.post("/auth/callback", (request, response) => {
     secure: true,
     sameSite: "none",
     path: "/",
+    maxAge: 60 * 60 * 1000,
   })
 
   response.cookie("refresh_token", refresh_token, {
@@ -376,30 +372,10 @@ app.post("/auth/callback", (request, response) => {
     secure: true,
     sameSite: "none",
     path: "/",
+    maxAge: 60 * 60 * 1000,
   })
 
   return response.status(200).json({ msg: true })
-})
-
-app.get("/api/testy", (request, response) => {
-  console.log('testy', request.cookies)
-  const token = "abc123"; // Normally from DB, JWT, etc.
-
-  // response.cookie("testy_cookie", token, {
-  //   httpOnly: true,       // prevents JS from reading the cookie
-  //   secure: false,        // true in production if using HTTPS
-  //   sameSite: "none",      // allow cross-origin if needed
-  //   path: "/",            // default path
-  // });
-
-  response.cookie("testy_cookie", token, {
-    httpOnly: true,
-    secure: true,            // ✅ Must be true for SameSite=None
-    sameSite: "none",
-    path: "/",
-  });
-
-  return response.status(200).json({ msg: true });
 })
 
 app.post("/auth/login", async (request, response) => {
