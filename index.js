@@ -356,11 +356,18 @@ app.get("/api/testy", (request, response) => {
   console.log('testy', request.cookies)
   const token = "abc123"; // Normally from DB, JWT, etc.
 
+  // response.cookie("testy_cookie", token, {
+  //   httpOnly: true,       // prevents JS from reading the cookie
+  //   secure: false,        // true in production if using HTTPS
+  //   sameSite: "none",      // allow cross-origin if needed
+  //   path: "/",            // default path
+  // });
+
   response.cookie("testy_cookie", token, {
-    httpOnly: true,       // prevents JS from reading the cookie
-    secure: false,        // true in production if using HTTPS
-    sameSite: "none",      // allow cross-origin if needed
-    path: "/",            // default path
+    httpOnly: true,
+    secure: true,            // ✅ Must be true for SameSite=None
+    sameSite: "none",
+    path: "/",
   });
 
   return response.status(200).json({ msg: true });
