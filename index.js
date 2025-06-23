@@ -353,7 +353,9 @@ app.post("/api/auth/refresh", async (request, response) => {
 });
 
 app.post("/auth/callback", (request, response) => {
+  console.log('request callback', request.body, request.data)
   const { access_token, refresh_token } = request.body;
+  console.log({ access_token, refresh_token })
 
   if (!access_token) {
     return response.status(400).json({ msg: "No access token" });
