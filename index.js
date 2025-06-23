@@ -352,6 +352,34 @@ app.post("/api/auth/refresh", async (request, response) => {
   }
 });
 
+app.post("/auth/callback", (request, response) => {
+  const { access_token, refresh_token } = request.body;
+
+  if (!access_token) {
+    return response.status(400).json({ msg: "No access token" });
+  }
+
+  if (!refresh_token) {
+    return response.status(400).json({ msg: "No refresh token" });
+  }
+
+  response.cookie("access_token", access_token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+  })
+
+  response.cookie("refresh_token", refresh_token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+  })
+
+  return response.status(200).json({ msg: true })
+})
+
 app.get("/api/testy", (request, response) => {
   console.log('testy', request.cookies)
   const token = "abc123"; // Normally from DB, JWT, etc.
