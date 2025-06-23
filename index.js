@@ -353,13 +353,18 @@ app.post("/auth/callback", (request, response) => {
   console.log('callback', {access_token, refresh_token})
 
   if (!access_token) {
+    console.log('no access msg')
+
     return response.status(400).json({ msg: "No access token" });
   }
 
   if (!refresh_token) {
+    console.log('no refresh msg')
+
     return response.status(400).json({ msg: "No refresh token" });
   }
 
+  console.log('setting cookies')
   response.cookie("access_token", access_token, {
     httpOnly: true,
     secure: true,
@@ -375,6 +380,8 @@ app.post("/auth/callback", (request, response) => {
     path: "/",
     maxAge: 60 * 60 * 1000,
   })
+
+  console.log('true msg')
 
   return response.status(200).json({ msg: true })
 })
