@@ -348,6 +348,11 @@ app.post("/api/auth/refresh", async (request, response) => {
   }
 });
 
+app.get("/auth/validate", (request, response) => {
+  console.log('req cookie', request.cookies)
+  return response.status(200).json({ msg: "success"})
+})
+
 app.post("/auth/callback", (request, response) => {
   const { access_token, refresh_token } = request.body;
   console.log('callback', {access_token, refresh_token})
