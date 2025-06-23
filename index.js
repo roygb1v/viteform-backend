@@ -352,6 +352,20 @@ app.post("/api/auth/refresh", async (request, response) => {
   }
 });
 
+app.get("/api/testy", (request, response) => {
+  console.log('testy', request.cookies)
+  const token = "abc123"; // Normally from DB, JWT, etc.
+
+  response.cookie("testy_cookie", token, {
+    httpOnly: true,       // prevents JS from reading the cookie
+    secure: false,        // true in production if using HTTPS
+    sameSite: "none",      // allow cross-origin if needed
+    path: "/",            // default path
+  });
+
+  return response.status(200).json({ msg: true });
+})
+
 app.post("/auth/login", async (request, response) => {
   try {
     const { email } = request.body;
