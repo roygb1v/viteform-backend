@@ -14,7 +14,7 @@ const isProduction = process.env.NODE_ENV === "production";
 const ORIGIN = isProduction ? "https://viteform.io" : "http://localhost:5173"
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({credentials: true}));
+// app.use(cors({credentials: true})); // dont use this in production
 
 const wss = new WebSocketServer({ port: 8080 });
 
