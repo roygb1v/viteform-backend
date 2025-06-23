@@ -348,6 +348,43 @@ app.post("/api/auth/refresh", async (request, response) => {
   }
 });
 
+app.post("/auth/logout", async (req, res) => {
+  const refresh_token = req.cookies.refresh_token;
+
+  if (!refresh_token) {
+    return res.status(400).json({ message: "Missing refresh token" });
+  }
+
+  try {
+    const { error } = await supabase.auth.signOut({ refreshToken: refresh_token });
+
+    if (error) {
+      console.error("Supabase signOut error:", error.message);
+      return res.status(500).json({ message: "Logout failed" });
+    }
+
+    // Clear cookies
+    res.clearCookie("access_token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+    });
+
+    res.clearCookie("refresh_token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      path: "/",
+    });
+
+    return res.status(200).json({ message: "Logged out successfully" });
+  } catch (e) {
+    console.error("Logout error:", e);
+    return res.status(500).json({ message: "Logout failed" });
+  }
+});
+
 app.get("/auth/validate", (request, response) => {
   console.log('req cookie', request.cookies)
   return response.status(200).json({ msg: "success"})
