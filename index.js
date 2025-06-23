@@ -11,8 +11,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const app = express();
 const port = 3000;
 const isProduction = process.env.NODE_ENV === "production";
-app.use(cookieParser());
+const ORIGIN = isProduction ? "https://viteform.io" : "http://localhost:5173"
 app.use(express.json());
+app.use(cookieParser());
+app.use(cors({credentials: true, origin: ORIGIN}));
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -256,10 +258,9 @@ wss.on("connection", (ws) => {
 });
 
 const authenticateUser = async (request, response, next) => {
+  console.log('authenticateUser cookies: ', request.cookies)
   try {
     const accessToken = request.cookies.access_token;
-    console.log('authenticateUser request.cookies', request.cookies)
-    console.log('access_token', accessToken)
 
     if (!accessToken) {
       return response.status(401).json({
@@ -271,6 +272,8 @@ const authenticateUser = async (request, response, next) => {
     const { data: user, error: authError } = await supabase.auth.getUser(
       accessToken
     );
+
+    console.log(user, authError)
 
     if (authError || !user) {
       return response.status(401).json({
@@ -354,14 +357,11 @@ app.post("/auth/login", async (request, response) => {
     const { email } = request.body;
 
     if (!email) throw new Error("Email is required");
-            // emailRedirectTo: isProduction
-        //   ? "https://viteform.io/dashboard"
-        //   : "http://localhost:5173/dashboard",
 
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: "https://viteform.io/dashboard"
+        emailRedirectTo: `${ORIGIN}/dashboard`
       },
     });
 
@@ -390,19 +390,19 @@ app.get("/auth/google/callback", async (request, response) => {
 
     response.redirect(
       `${
-        isProduction ? "https://viteform.io" : "http://localhost:5173"
+        isProduction ? "https://viteform.io" : ORIGIN
       }/dashboard`
     );
   } catch (e) {
     response.redirect(
-      `${isProduction ? "https://viteform.io" : "http://localhost:5173"}/error`
+      `${isProduction ? "https://viteform.io" : ORIGIN}/error`
     );
   }
 });
 
-app.get("/test", authenticateUser, async (_, response) => {
+app.get("/test", async (_, response) => {
   try {
-    const { data, error } = await supabase.from("test").select("*");
+    const { data, error } = await supabase.from("feedback").select("*");
 
     if (error) {
       return response.status(400).json({ code: 400, error, data });
