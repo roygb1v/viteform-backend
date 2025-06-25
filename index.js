@@ -11,10 +11,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const app = express();
 const port = 3000;
 const isProduction = process.env.NODE_ENV === "production";
-const ORIGIN = isProduction ? "https://viteform.io" : "http://localhost:5173"
+const ORIGIN = isProduction ? "https://viteform.io" : "http://localhost:5173";
 app.use(express.json());
 app.use(cookieParser());
-// app.use(cors({credentials: true})); // dont use this in production
+app.use(cors({ credentials: true, origin: ORIGIN })); // dont use this in production
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -258,7 +258,7 @@ wss.on("connection", (ws) => {
 });
 
 const authenticateUser = async (request, response, next) => {
-  console.log('authenticateUser cookies: ', request.cookies)
+  console.log("authenticateUser cookies: ", request.cookies);
   try {
     const accessToken = request.cookies.access_token;
 
@@ -273,7 +273,7 @@ const authenticateUser = async (request, response, next) => {
       accessToken
     );
 
-    console.log(user, authError)
+    console.log(user, authError);
 
     if (authError || !user) {
       return response.status(401).json({
@@ -307,15 +307,16 @@ app.get("/api/rooms", (request, response) => {
 });
 
 app.get("/api/auth/me", authenticateUser, (request, response) => {
-  console.log("api/auth/me");
   return response.status(200).json({ user: request.user });
 });
 
+
+// [TODO]
 app.post("/api/auth/refresh", async (request, response) => {
   try {
     const refreshToken = request.cookies.refresh_token;
-    console.log('cookies', request.cookies)
-    console.log('refreshToken', refreshToken)
+    console.log("cookies", request.cookies);
+    console.log("refreshToken", refreshToken);
 
     if (!refreshToken) {
       return response.status(401).json({ error: "No refresh token" });
@@ -356,7 +357,9 @@ app.post("/auth/logout", async (req, res) => {
   }
 
   try {
-    const { error } = await supabase.auth.signOut({ refreshToken: refresh_token });
+    const { error } = await supabase.auth.signOut({
+      refreshToken: refresh_token,
+    });
 
     if (error) {
       console.error("Supabase signOut error:", error.message);
@@ -385,35 +388,28 @@ app.post("/auth/logout", async (req, res) => {
   }
 });
 
-app.get("/auth/validate", (request, response) => {
-  console.log('req cookie', request.cookies)
-  return response.status(200).json({ msg: "success"})
-})
+app.get("/auth/validate", (_, response) => {
+  return response.status(200).json({ msg: "success" });
+});
 
 app.post("/auth/callback", (request, response) => {
   const { access_token, refresh_token } = request.body;
-  console.log('callback', {access_token, refresh_token})
 
   if (!access_token) {
-    console.log('no access msg')
-
     return response.status(400).json({ msg: "No access token" });
   }
 
   if (!refresh_token) {
-    console.log('no refresh msg')
-
     return response.status(400).json({ msg: "No refresh token" });
   }
 
-  console.log('setting cookies')
   response.cookie("access_token", access_token, {
     httpOnly: true,
     secure: true,
     sameSite: "none",
     path: "/",
     maxAge: 60 * 60 * 1000,
-  })
+  });
 
   response.cookie("refresh_token", refresh_token, {
     httpOnly: true,
@@ -421,12 +417,10 @@ app.post("/auth/callback", (request, response) => {
     sameSite: "none",
     path: "/",
     maxAge: 60 * 60 * 1000,
-  })
+  });
 
-  console.log('true msg')
-
-  return response.status(200).json({ msg: true })
-})
+  return response.status(200).json({ msg: true });
+});
 
 app.post("/auth/login", async (request, response) => {
   try {
@@ -437,7 +431,7 @@ app.post("/auth/login", async (request, response) => {
     const { data, error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${ORIGIN}/dashboard`
+        emailRedirectTo: `${ORIGIN}/dashboard`,
       },
     });
 
@@ -460,23 +454,24 @@ app.post("/auth/login", async (request, response) => {
   }
 });
 
-app.get("/auth/google/callback", async (request, response) => {
-  try {
-    const token = request.query.access_token;
+app.get("/auth/google/login", async (_, response) => {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${isProduction ? "https://viteform.io" : "http://localhost:5173"}/auth/google/callback`,
+    },
+  });
 
-    response.redirect(
-      `${
-        isProduction ? "https://viteform.io" : ORIGIN
-      }/dashboard`
-    );
-  } catch (e) {
-    response.redirect(
-      `${isProduction ? "https://viteform.io" : ORIGIN}/error`
-    );
+  if (error) {
+    return response.redirect("/error")
+  }
+
+  if (data.url) {
+    response.status(200).json({msg: "success", url: data.url})
   }
 });
 
-app.get("/test", async (_, response) => {
+app.get("/feedback", async (_, response) => {
   try {
     const { data, error } = await supabase.from("feedback").select("*");
 
@@ -500,28 +495,6 @@ app.post("/submit", async (request, response) => {
     if (!error) {
       return response.status(201).json({
         message: "Data submitted successfully",
-      });
-    }
-
-    return response.status(500).json({
-      message: "Database error occurred",
-      error,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: "An unexpected error occurred",
-      error,
-    });
-  }
-});
-
-app.post("/form/create", authenticateUser, async (request, response) => {
-  try {
-    let { error } = await supabase.from("forms").insert(request.body.data);
-
-    if (!error) {
-      return response.status(201).json({
-        message: "Form created successfully",
       });
     }
 
@@ -579,6 +552,28 @@ app.get("/responses", async (request, response) => {
     });
   } catch (error) {
     return response.status(500).json({
+      message: "An unexpected error occurred",
+      error,
+    });
+  }
+});
+
+app.post("/form/create", authenticateUser, async (request, response) => {
+  try {
+    let { error } = await supabase.from("forms").insert(request.body.data);
+
+    if (!error) {
+      return response.status(201).json({
+        message: "Form created successfully",
+      });
+    }
+
+    return response.status(500).json({
+      message: "Database error occurred",
+      error,
+    });
+  } catch (error) {
+    return res.status(500).json({
       message: "An unexpected error occurred",
       error,
     });
