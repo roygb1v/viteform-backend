@@ -310,7 +310,6 @@ app.get("/api/auth/me", authenticateUser, (request, response) => {
   return response.status(200).json({ user: request.user });
 });
 
-
 // [TODO]
 app.post("/api/auth/refresh", async (request, response) => {
   try {
