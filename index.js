@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { combineResults } from "./utils/index.js";
+import { DAY } from "./utils/constants.js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -14,7 +15,13 @@ const isProduction = process.env.NODE_ENV === "production";
 const ORIGIN = isProduction ? "https://viteform.io" : "http://localhost:5173";
 app.use(express.json());
 app.use(cookieParser());
-// app.use(cors({ credentials: true, origin: ORIGIN })); // dont use this in production
+
+(function() {
+  if (isProduction) return;
+
+  // [IMPORTANT] - Remove this in production
+  app.use(cors({ credentials: true, origin: ORIGIN })); 
+})()
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -93,7 +100,6 @@ wss.on("connection", (ws) => {
           }
           break;
         case "response":
-          console.log("responding...");
           const { questionId } = message;
           const room = rooms[roomId];
 
@@ -273,8 +279,6 @@ const authenticateUser = async (request, response, next) => {
       accessToken
     );
 
-    console.log(user, authError);
-
     if (authError || !user) {
       return response.status(401).json({
         code: 401,
@@ -407,7 +411,7 @@ app.post("/auth/callback", (request, response) => {
     secure: true,
     sameSite: "none",
     path: "/",
-    maxAge: 60 * 60 * 1000,
+    maxAge: DAY,
   });
 
   response.cookie("refresh_token", refresh_token, {
@@ -415,7 +419,7 @@ app.post("/auth/callback", (request, response) => {
     secure: true,
     sameSite: "none",
     path: "/",
-    maxAge: 60 * 60 * 1000,
+    maxAge: DAY,
   });
 
   return response.status(200).json({ msg: true });
@@ -558,8 +562,11 @@ app.get("/responses", async (request, response) => {
 });
 
 app.post("/form/create", authenticateUser, async (request, response) => {
+  console.log('request bodt', request.body.data)
   try {
-    let { error } = await supabase.from("forms").insert(request.body.data);
+    let { data, error } = await supabase.from("forms").insert(request.body.data);
+
+    console.log('creation', data, error)
 
     if (!error) {
       return response.status(201).json({
