@@ -18,7 +18,9 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "postgres": "^3.4.5",
+    "resend": "^4.6.0",
     "sqlite3": "^5.1.7",
+    "stripe": "^18.2.1",
     "ws": "^8.18.1"
   },
   "devDependencies": {

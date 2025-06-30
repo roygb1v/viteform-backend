@@ -1,14 +1,17 @@
 import "dotenv/config";
 import express from "express";
+import { Resend } from "resend";
 import WebSocket, { WebSocketServer } from "ws";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { combineResults } from "./utils/index.js";
 import { DAY } from "./utils/constants.js";
+import stripe from "stripe";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+const stripeClient = stripe(process.env.STRIPE_SANDBOX_API_KEY);
 const app = express();
 const port = 3000;
 const isProduction = process.env.NODE_ENV === "production";
@@ -16,12 +19,14 @@ const ORIGIN = isProduction ? "https://viteform.io" : "http://localhost:5173";
 app.use(express.json());
 app.use(cookieParser());
 
-(function() {
+(function () {
   if (isProduction) return;
 
   // [IMPORTANT] - Remove this in production
-  app.use(cors({ credentials: true, origin: ORIGIN })); 
-})()
+  app.use(cors({ credentials: true, origin: ORIGIN }));
+})();
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -275,9 +280,8 @@ const authenticateUser = async (request, response, next) => {
       });
     }
 
-    const { data: user, error: authError } = await supabase.auth.getUser(
-      accessToken
-    );
+    const { data: user, error: authError } =
+      await supabase.auth.getUser(accessToken);
 
     if (authError || !user) {
       return response.status(401).json({
@@ -466,17 +470,52 @@ app.get("/auth/google/login", async (_, response) => {
   });
 
   if (error) {
-    return response.redirect("/error")
+    return response.redirect("/error");
   }
 
   if (data.url) {
-    response.status(200).json({msg: "success", url: data.url})
+    response.status(200).json({ msg: "success", url: data.url });
   }
+});
+
+app.post("/create-checkout-session", async (request, response) => {
+  const session = await stripeClient.checkout.sessions.create({
+    line_items: [
+      {
+        price: "price_1RfPKpPxxbacjYVrkJfDxZQu",
+        quantity: 1,
+      },
+    ],
+    mode: "payment",
+    success_url: `${isProduction ? "https://viteform.io" : "http://localhost:5173"}/dashboard?success=true`,
+    cancel_url: `${isProduction ? "https://viteform.io" : "http://localhost:5173"}/dashboard?canceled=true`,
+  });
+
+  response.redirect(303, session.url);
 });
 
 app.get("/feedback", async (_, response) => {
   try {
     const { data, error } = await supabase.from("feedback").select("*");
+
+    if (error) {
+      return response.status(400).json({ code: 400, error, data });
+    }
+
+    return response.json({ data });
+  } catch (e) {
+    return response.status(500).json({
+      code: 500,
+      error: "Internal server error",
+    });
+  }
+});
+
+app.post("/feedback", async (request, response) => {
+  try {
+    const { data, error } = await supabase
+      .from("feedback")
+      .insert(request.body.data);
 
     if (error) {
       return response.status(400).json({ code: 400, error, data });
@@ -500,6 +539,13 @@ app.post("/submit", async (request, response) => {
         message: "Data submitted successfully",
       });
     }
+
+    resend.emails.send({
+      from: "support@viteform.io",
+      to: "cjhroy98@gmail.com",
+      subject: "New form submission",
+      html: "<p>Congratulations! A new form submission has been made successfuly.</p>",
+    });
 
     return response.status(500).json({
       message: "Database error occurred",
@@ -562,11 +608,13 @@ app.get("/responses", async (request, response) => {
 });
 
 app.post("/form/create", authenticateUser, async (request, response) => {
-  console.log('request bodt', request.body.data)
+  console.log("request bodt", request.body.data);
   try {
-    let { data, error } = await supabase.from("forms").insert(request.body.data);
+    let { data, error } = await supabase
+      .from("forms")
+      .insert(request.body.data);
 
-    console.log('creation', data, error)
+    console.log("creation", data, error);
 
     if (!error) {
       return response.status(201).json({
