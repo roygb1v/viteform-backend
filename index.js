@@ -478,7 +478,8 @@ app.get("/auth/google/login", async (_, response) => {
   }
 });
 
-app.post("/create-checkout-session", async (request, response) => {
+app.post("/create-checkout-session", async (_, response) => {
+  console.log('/create-checkout-session')
   const session = await stripeClient.checkout.sessions.create({
     line_items: [
       {
