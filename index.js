@@ -9,7 +9,7 @@ import { combineResults } from "./utils/index.js";
 import { DAY } from "./utils/constants.js";
 import stripe from "stripe";
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 const stripeClient = stripe(process.env.STRIPE_SANDBOX_API_KEY);
 const app = express();
@@ -18,6 +18,77 @@ const isProduction = process.env.NODE_ENV === "production";
 const ORIGIN = isProduction ? "https://viteform.io" : "http://localhost:5173";
 app.use(express.json());
 app.use(cookieParser());
+
+const emailTemplate = `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Magic Link</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+        background-color: #f9f9f9;
+        margin: 0;
+        padding: 0;
+        color: #333;
+      }
+      .container {
+        max-width: 600px;
+        margin: 2rem auto;
+        background-color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+      }
+      p {
+        font-size: 1rem;
+        line-height: 1.5;
+      }
+      .button {
+        display: inline-block;
+        margin: auto;
+        margin-top: 1.5rem;
+        padding: 0.75rem 1.5rem;
+        background-color: #4f46e5;
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+      }
+      .loginText {
+        color: white;
+      }
+      .footer {
+        margin-top: 2rem;
+        font-size: 0.875rem;
+        color: #888;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🔐 Log in to Viteform</h1>
+      <p>Hello,</p>
+      <p>Click the button below to log in securely to your account:</p>
+
+      <a href="{{MAGIC_LINK}}" class="button"><p class="loginText">Log In Now</p></a>
+
+      <p>If you didn't request this, you can safely ignore this email.</p>
+
+      <div class="footer">
+        &copy; {{YEAR}} Viteform, All rights reserved.
+      </div>
+    </div>
+  </body>
+</html>
+`;
 
 (function () {
   if (isProduction) return;
@@ -269,7 +340,7 @@ wss.on("connection", (ws) => {
 });
 
 const authenticateUser = async (request, response, next) => {
-  console.log("authenticateUser cookies: ", request.cookies);
+  console.log("authenticateUser");
   try {
     const accessToken = request.cookies.access_token;
 
@@ -322,8 +393,6 @@ app.get("/api/auth/me", authenticateUser, (request, response) => {
 app.post("/api/auth/refresh", async (request, response) => {
   try {
     const refreshToken = request.cookies.refresh_token;
-    console.log("cookies", request.cookies);
-    console.log("refreshToken", refreshToken);
 
     if (!refreshToken) {
       return response.status(401).json({ error: "No refresh token" });
@@ -429,13 +498,50 @@ app.post("/auth/callback", (request, response) => {
   return response.status(200).json({ msg: true });
 });
 
+app.get("/auth/verify", async (request, response) => {
+  try {
+    const accessToken = request.cookies.access_token;
+
+    if (!accessToken) {
+      return response.status(401).json({
+        code: 401,
+        error: "No access token provided",
+      });
+    }
+
+    const { data, error } = await supabase.auth.getUser(accessToken);
+
+    if (error || !data) {
+      return response.status(401).json({
+        code: 401,
+        error: "Invalid or expired token",
+      });
+    }
+
+    return response.status(200).json({ message: "success", error: null });
+  } catch (e) {
+    return response.status(500).json({
+      code: 500,
+      error: "Internal server error",
+    });
+  }
+});
+
 app.post("/auth/login", async (request, response) => {
   try {
     const { email } = request.body;
 
     if (!email) throw new Error("Email is required");
 
-    const { data, error } = await supabase.auth.signInWithOtp({
+    // const { data, error } = await supabase.auth.admin.generateLink({
+    //   type: "magiclink",
+    //   email,
+    //   options: {
+    //     redirectTo: `${ORIGIN}/dashboard`,
+    //   },
+    // });
+
+    const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: `${ORIGIN}/dashboard`,
@@ -443,11 +549,27 @@ app.post("/auth/login", async (request, response) => {
     });
 
     if (error) {
-      return response.json({
+      return response.status(404).json({
         code: 404,
         message: "Unable to sign in",
       });
     }
+
+    // const link = data.properties?.action_link;
+
+    // const html = emailTemplate
+    // .replace(
+    //   "{{MAGIC_LINK}}",
+    //   link
+    // )
+    // .replace("{{YEAR}}", new Date().getFullYear().toString());
+
+    // await resend.emails.send({
+    //   from: "support@viteform.io",
+    //   to: email,
+    //   subject: "Login to Viteform",
+    //   html: `<p>Click here to sign in: <a href="${link}">${link}</a></p>`,
+    // });
 
     return response.json({
       code: 201,
@@ -459,6 +581,19 @@ app.post("/auth/login", async (request, response) => {
       message: "Unable to sign in",
     });
   }
+});
+
+app.get("/test/emails", async (request, response) => {
+  const data = await resend.emails.send({
+    from: "Login to Viteform <support@viteform.io>",
+    to: "cjhroy98@gmail.com",
+    subject: "Login to Viteform",
+    html: "test",
+  });
+
+  return response.json({
+    message: "Sent",
+  });
 });
 
 app.get("/auth/google/login", async (_, response) => {
@@ -479,7 +614,6 @@ app.get("/auth/google/login", async (_, response) => {
 });
 
 app.post("/create-checkout-session", async (_, response) => {
-  console.log('/create-checkout-session')
   const session = await stripeClient.checkout.sessions.create({
     line_items: [
       {
@@ -608,14 +742,44 @@ app.get("/responses", async (request, response) => {
   }
 });
 
-app.post("/form/create", authenticateUser, async (request, response) => {
-  console.log("request bodt", request.body.data);
-  try {
-    let { data, error } = await supabase
-      .from("forms")
-      .insert(request.body.data);
+app.get("/draft", async (request, response) => {
+  let { data: forms, error } = await supabase
+    .from("drafts")
+    .select("*")
+    .eq("id", request.query.id);
 
-    console.log("creation", data, error);
+  if (!error) {
+    return response.json({ msg: "successful", items: forms });
+  }
+
+  return response.json({ msg: "error getting form" });
+});
+
+app.post("/draft", async (request, response) => {
+  try {
+    let { error } = await supabase.from("drafts").upsert(request.body.data);
+
+    if (!error) {
+      return response.status(201).json({
+        message: "Draft created successfully",
+      });
+    }
+
+    return response.status(500).json({
+      message: "An unexpected error occurred",
+      error,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "An unexpected error occurred",
+      error,
+    });
+  }
+});
+
+app.post("/form/create", authenticateUser, async (request, response) => {
+  try {
+    let { error } = await supabase.from("forms").upsert(request.body.data);
 
     if (!error) {
       return response.status(201).json({
@@ -624,10 +788,35 @@ app.post("/form/create", authenticateUser, async (request, response) => {
     }
 
     return response.status(500).json({
-      message: "Database error occurred",
+      message: "An unexpected error occurred",
       error,
     });
   } catch (error) {
+    return res.status(500).json({
+      message: "An unexpected error occurred",
+      error,
+    });
+  }
+});
+
+app.put("/form", authenticateUser, async (request, response) => {
+  try {
+    let { error } = await supabase
+      .from("forms")
+      .update(request.body.data)
+      .eq("id", request.body.data.id);
+
+    if (!error) {
+      return response.status(201).json({
+        message: "Form updated successfully",
+      });
+    }
+
+    return response.status(500).json({
+      message: "An unexpected error occurred",
+      error,
+    });
+  } catch (e) {
     return res.status(500).json({
       message: "An unexpected error occurred",
       error,
